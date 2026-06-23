@@ -1,28 +1,23 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 
 const api = {
-  // Get token from localStorage
   getToken: () => localStorage.getItem('vms_token'),
   
-  // Set token and user in localStorage
   setSession: (token, user) => {
     localStorage.setItem('vms_token', token);
     localStorage.setItem('vms_user', JSON.stringify(user));
   },
   
-  // Clear session
   clearSession: () => {
     localStorage.removeItem('vms_token');
     localStorage.removeItem('vms_user');
   },
   
-  // Get user details
   getUser: () => {
     const user = localStorage.getItem('vms_user');
     return user ? JSON.parse(user) : null;
   },
 
-  // Helper for requests
   request: async (endpoint, options = {}) => {
     const token = api.getToken();
     const headers = {
@@ -39,7 +34,6 @@ const api = {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     
     if (response.status === 401 || response.status === 403) {
-      // Auto logout if token expires/fails
       api.clearSession();
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
@@ -53,7 +47,6 @@ const api = {
     return data;
   },
 
-  // Auth APIs
   login: async (email, password) => {
     const data = await api.request('/auth/login', {
       method: 'POST',
@@ -78,7 +71,6 @@ const api = {
     return api.request('/users/hosts');
   },
 
-  // Appointments APIs
   getAppointments: async () => {
     return api.request('/appointments');
   },
@@ -109,7 +101,6 @@ const api = {
     });
   },
 
-  // Scan QR Code
   scanQrCode: async (qrToken, action) => {
     return api.request('/appointments/scan-qr', {
       method: 'POST',
@@ -117,7 +108,6 @@ const api = {
     });
   },
 
-  // Notifications APIs
   getNotifications: async () => {
     return api.request('/notifications');
   },
@@ -128,7 +118,6 @@ const api = {
     });
   },
 
-  // Admin APIs
   getAdminAnalytics: async () => {
     return api.request('/admin/analytics');
   }

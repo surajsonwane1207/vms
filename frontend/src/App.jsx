@@ -1,37 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import api from './api';
-import Login from './components/Login';
-import Register from './components/Register';
+import React from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './components/Dashboard';
 import { RefreshCw } from 'lucide-react';
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [page, setPage] = useState('login'); // 'login', 'register', 'dashboard'
-  const [loading, setLoading] = useState(true);
+function AppContent() {
+  const { user, loading } = useAuth();
+  const [page, setPage] = React.useState('login');
 
-  useEffect(() => {
-    // Restore session on mount
-    const savedUser = api.getUser();
-    const token = api.getToken();
-
-    if (savedUser && token) {
-      setUser(savedUser);
+  React.useEffect(() => {
+    if (user) {
       setPage('dashboard');
+    } else {
+      // Allow switching between login and register manually if no user exists
+      if (page === 'dashboard') {
+        setPage('login');
+      }
     }
-    setLoading(false);
-  }, []);
-
-  const handleLoginSuccess = (loggedInUser) => {
-    setUser(loggedInUser);
-    setPage('dashboard');
-  };
-
-  const handleLogout = () => {
-    api.clearSession();
-    setUser(null);
-    setPage('login');
-  };
+  }, [user]);
 
   if (loading) {
     return (
@@ -44,26 +31,19 @@ export default function App() {
 
   switch (page) {
     case 'register':
-      return (
-        <Register 
-          onRegisterSuccess={() => setPage('login')} 
-          onNavigateToLogin={() => setPage('login')} 
-        />
-      );
+      return <Register onNavigateToLogin={() => setPage('login')} />;
     case 'dashboard':
-      return (
-        <Dashboard 
-          user={user} 
-          onLogout={handleLogout} 
-        />
-      );
+      return <Dashboard />;
     case 'login':
     default:
-      return (
-        <Login 
-          onLoginSuccess={handleLoginSuccess} 
-          onNavigateToRegister={() => setPage('register')} 
-        />
-      );
+      return <Login onNavigateToRegister={() => setPage('register')} />;
   }
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }
