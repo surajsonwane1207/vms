@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { PlusCircle, AlertCircle } from 'lucide-react';
+import { PlusCircle, AlertCircle, Building, User, Clock } from 'lucide-react';
 
 export default function BookAppointment({ user, onBookingSuccess, onCancel }) {
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [hosts, setHosts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [fetchingHosts, setFetchingHosts] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
   
   const [bookForm, setBookForm] = useState({
@@ -17,25 +20,53 @@ export default function BookAppointment({ user, onBookingSuccess, onCancel }) {
     visitorCompany: user.company || ''
   });
 
+  // Fetch companies list on mount
   useEffect(() => {
-    fetchHosts();
+    fetchCompanies();
   }, []);
 
-  const fetchHosts = async () => {
+  // Fetch hosts whenever company selection changes
+  useEffect(() => {
+    if (selectedCompanyId) {
+      fetchHosts(selectedCompanyId);
+    } else {
+      setHosts([]);
+      setBookForm(prev => ({ ...prev, hostId: '' }));
+    }
+  }, [selectedCompanyId]);
+
+  const fetchCompanies = async () => {
     try {
-      const list = await api.getHosts();
+      const list = await api.getPublicCompanies();
+      setCompanies(list);
+      if (list.length > 0) {
+        setSelectedCompanyId(list[0].id.toString());
+      }
+    } catch (err) {
+      console.error('Error fetching companies:', err);
+    }
+  };
+
+  const fetchHosts = async (companyId) => {
+    setFetchingHosts(true);
+    try {
+      const list = await api.getHosts(companyId);
       setHosts(list);
       if (list.length > 0) {
         setBookForm(prev => ({ ...prev, hostId: list[0].id.toString() }));
+      } else {
+        setBookForm(prev => ({ ...prev, hostId: '' }));
       }
     } catch (err) {
       console.error('Error fetching hosts:', err);
+    } finally {
+      setFetchingHosts(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!bookForm.hostId || !bookForm.purpose || !bookForm.scheduledStart) {
+    if (!selectedCompanyId || !bookForm.hostId || !bookForm.purpose || !bookForm.scheduledStart) {
       setMsg({ type: 'error', text: 'Please fill in all required fields' });
       return;
     }
@@ -80,17 +111,44 @@ export default function BookAppointment({ user, onBookingSuccess, onCancel }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* SELECT COMPANY TENANT */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Select Host / Employee *
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Building className="w-4 h-4 text-indigo-400" /> Select Company *
+              </label>
+              <select
+                value={selectedCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-indigo-500 text-white rounded-xl outline-none transition-all duration-300 text-sm"
+              >
+                {companies.length === 0 ? (
+                  <option>Loading companies...</option>
+                ) : (
+                  companies.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* SELECT HOST */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <User className="w-4 h-4 text-indigo-400" /> Select Host / Employee *
               </label>
               <select
                 value={bookForm.hostId}
                 onChange={(e) => setBookForm({ ...bookForm, hostId: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-indigo-500 text-white rounded-xl outline-none transition-all duration-300 text-sm"
+                disabled={fetchingHosts || hosts.length === 0}
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-indigo-500 text-white rounded-xl outline-none transition-all duration-300 text-sm disabled:opacity-50"
               >
-                {hosts.length === 0 ? (
-                  <option>Loading hosts...</option>
+                {fetchingHosts ? (
+                  <option>Updating hosts list...</option>
+                ) : hosts.length === 0 ? (
+                  <option>No active hosts at this company</option>
                 ) : (
                   hosts.map(h => (
                     <option key={h.id} value={h.id}>
@@ -101,9 +159,13 @@ export default function BookAppointment({ user, onBookingSuccess, onCancel }) {
               </select>
             </div>
 
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Scheduled Visit Time *
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-indigo-400" /> Scheduled Visit Time *
               </label>
               <input
                 type="datetime-local"
@@ -113,20 +175,21 @@ export default function BookAppointment({ user, onBookingSuccess, onCancel }) {
                 className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-indigo-500 text-white rounded-xl outline-none transition-all duration-300 text-sm"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              Purpose of Visit *
-            </label>
-            <input
-              type="text"
-              required
-              value={bookForm.purpose}
-              onChange={(e) => setBookForm({ ...bookForm, purpose: e.target.value })}
-              placeholder="e.g. Quarterly Review, Product Demo, Job Interview"
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-indigo-500 text-white rounded-xl placeholder-slate-600 outline-none transition-all duration-300 text-sm"
-            />
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                Purpose of Visit *
+              </label>
+              <input
+                type="text"
+                required
+                value={bookForm.purpose}
+                onChange={(e) => setBookForm({ ...bookForm, purpose: e.target.value })}
+                placeholder="e.g. Product Demo, Job Interview, Client Meeting"
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-indigo-500 text-white rounded-xl placeholder-slate-600 outline-none transition-all duration-300 text-sm"
+              />
+            </div>
+
           </div>
 
           <div className="pt-4 border-t border-slate-800/80 flex items-center justify-end gap-3">
@@ -139,8 +202,8 @@ export default function BookAppointment({ user, onBookingSuccess, onCancel }) {
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-indigo-600/30 flex items-center gap-2 cursor-pointer"
+              disabled={loading || hosts.length === 0}
+              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-indigo-600/30 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

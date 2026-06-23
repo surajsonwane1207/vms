@@ -10,10 +10,17 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
   if (!user) return null;
 
   const getNavigationLinks = () => {
-    if (user.role === 'admin') {
+    if (user.role === 'superadmin') {
+      return [
+        { id: 'analytics', label: 'Global Analytics', icon: Shield },
+        { id: 'companies', label: 'Manage Companies', icon: Calendar },
+        { id: 'logs', label: 'Global Visitor Logs', icon: Users },
+      ];
+    } else if (user.role === 'admin') {
       return [
         { id: 'analytics', label: 'Analytics Dashboard', icon: Shield },
         { id: 'terminal', label: 'Lobby Check-In Desk', icon: Calendar },
+        { id: 'employees', label: 'Manage Employees', icon: Users },
         { id: 'logs', label: 'All Visitor Logs', icon: Users },
       ];
     } else if (user.role === 'host') {

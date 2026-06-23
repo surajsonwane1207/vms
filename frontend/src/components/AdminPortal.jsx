@@ -3,6 +3,8 @@ import api from '../services/api';
 import AnalyticsDashboard from './admin/AnalyticsDashboard';
 import ArrivalsTerminal from './admin/ArrivalsTerminal';
 import MasterLogs from './admin/MasterLogs';
+import CompanyManager from './admin/CompanyManager';
+import EmployeeManager from './admin/EmployeeManager';
 import { RefreshCw } from 'lucide-react';
 
 export default function AdminPortal({ activeTab, setActiveTab }) {
@@ -15,6 +17,11 @@ export default function AdminPortal({ activeTab, setActiveTab }) {
   }, [activeTab]);
 
   const fetchData = async () => {
+    if (activeTab === 'companies' || activeTab === 'employees') {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       if (activeTab === 'analytics') {
@@ -37,18 +44,26 @@ export default function AdminPortal({ activeTab, setActiveTab }) {
 
   const approvedVisits = logs.filter(log => log.status === 'approved');
 
+  if (activeTab === 'companies') {
+    return <CompanyManager />;
+  }
+
+  if (activeTab === 'employees') {
+    return <EmployeeManager />;
+  }
+
   if (activeTab === 'analytics') {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-extrabold text-white">System Analytics</h1>
-          <p className="text-slate-400 text-sm mt-1 font-medium">Real-time oversight of site visitor operations and security metrics.</p>
+          <h1 className="text-2xl font-extrabold text-white font-sans">System Analytics</h1>
+          <p className="text-slate-400 text-sm mt-1">Real-time oversight of site visitor operations and security metrics.</p>
         </div>
 
         {loading || !analytics ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
-            <p className="text-slate-500 text-sm font-semibold">Generating metrics dashboard...</p>
+            <p className="text-slate-400 text-sm font-semibold">Generating metrics dashboard...</p>
           </div>
         ) : (
           <AnalyticsDashboard analytics={analytics} />

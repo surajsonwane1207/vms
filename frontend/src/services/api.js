@@ -35,7 +35,7 @@ const api = {
     
     if (response.status === 401 || response.status === 403) {
       api.clearSession();
-      if (!window.location.pathname.includes('/login')) {
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/invite')) {
         window.location.href = '/login';
       }
     }
@@ -47,6 +47,7 @@ const api = {
     return data;
   },
 
+  // Auth APIs
   login: async (email, password) => {
     const data = await api.request('/auth/login', {
       method: 'POST',
@@ -67,10 +68,15 @@ const api = {
     return api.request('/auth/me');
   },
 
-  getHosts: async () => {
-    return api.request('/users/hosts');
+  getHosts: async (companyId = '') => {
+    return api.request(`/auth/hosts?companyId=${companyId}`);
   },
 
+  getPublicCompanies: async () => {
+    return api.request('/auth/companies');
+  },
+
+  // Appointments APIs
   getAppointments: async () => {
     return api.request('/appointments');
   },
@@ -108,6 +114,7 @@ const api = {
     });
   },
 
+  // Notifications APIs
   getNotifications: async () => {
     return api.request('/notifications');
   },
@@ -118,8 +125,44 @@ const api = {
     });
   },
 
+  // Admin APIs
   getAdminAnalytics: async () => {
     return api.request('/admin/analytics');
+  },
+
+  createCompany: async (companyData) => {
+    return api.request('/admin/companies', {
+      method: 'POST',
+      body: JSON.stringify(companyData)
+    });
+  },
+
+  getCompanies: async () => {
+    return api.request('/admin/companies');
+  },
+
+  // Invitations APIs
+  bulkInviteEmployees: async (employees) => {
+    return api.request('/auth/users/bulk-invite', {
+      method: 'POST',
+      body: JSON.stringify({ employees })
+    });
+  },
+
+  getInvitationDetails: async (token) => {
+    return api.request(`/auth/invitation/${token}`);
+  },
+
+  respondInvitation: async (token, action, password = '') => {
+    return api.request(`/auth/invitation/${token}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ action, password })
+    });
+  },
+
+  // Simulated SMS Sandbox
+  getSmsGatewayLogs: async () => {
+    return api.request('/auth/sms-gateway');
   }
 };
 

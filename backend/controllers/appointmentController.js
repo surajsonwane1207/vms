@@ -9,10 +9,12 @@ export async function createAppointment(req, res) {
       return res.status(400).json({ message: 'Host ID, purpose, and scheduled start time are required' });
     }
 
-    const host = await db.get('SELECT name FROM users WHERE id = ? AND role = "host"', [hostId]);
+    const host = await db.get('SELECT name, company_id FROM users WHERE id = ? AND role = "host"', [hostId]);
     if (!host) {
       return res.status(400).json({ message: 'Selected host not found or invalid' });
     }
+
+    const companyId = host.company_id;
 
     let finalVisitorId = null;
     let finalVisitorName = visitorName;
@@ -38,9 +40,10 @@ export async function createAppointment(req, res) {
 
     const result = await db.run(
       `INSERT INTO appointments 
-      (visitor_id, visitor_name, visitor_email, visitor_phone, visitor_company, host_id, host_name, purpose, scheduled_start, status, qr_code_token)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (company_id, visitor_id, visitor_name, visitor_email, visitor_phone, visitor_company, host_id, host_name, purpose, scheduled_start, status, qr_code_token)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        companyId,
         finalVisitorId,
         finalVisitorName,
         finalVisitorEmail,
@@ -82,14 +85,21 @@ export async function getAppointments(req, res) {
     const db = getDB();
     let appointments;
 
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'superadmin') {
       appointments = await db.all('SELECT * FROM appointments ORDER BY scheduled_start DESC');
+    } else if (req.user.role === 'admin') {
+      // Filter by company admin's tenant scope
+      appointments = await db.all(
+        'SELECT * FROM appointments WHERE company_id = ? ORDER BY scheduled_start DESC',
+        [req.user.company_id]
+      );
     } else if (req.user.role === 'host') {
       appointments = await db.all(
         'SELECT * FROM appointments WHERE host_id = ? ORDER BY scheduled_start DESC',
         [req.user.id]
       );
     } else {
+      // Visitor
       appointments = await db.all(
         'SELECT * FROM appointments WHERE visitor_id = ? OR visitor_email = ? ORDER BY scheduled_start DESC',
         [req.user.id, req.user.email]
@@ -118,6 +128,9 @@ export async function updateAppointmentStatus(req, res) {
       return res.status(404).json({ message: 'Appointment not found' });
     }
 
+    if (req.user.role === 'admin' && appointment.company_id !== req.user.company_id) {
+      return res.status(403).json({ message: 'Access denied: not within your company scope' });
+    }
     if (req.user.role === 'host' && appointment.host_id !== req.user.id) {
       return res.status(403).json({ message: 'Access denied: not your appointment' });
     }
@@ -157,6 +170,11 @@ export async function scanQrCode(req, res) {
     const appointment = await db.get('SELECT * FROM appointments WHERE qr_code_token = ?', [qrToken]);
     if (!appointment) {
       return res.status(404).json({ message: 'Invalid QR code: Appointment not found' });
+    }
+
+    // Tenant check: company admin can only scan passes for their company
+    if (req.user.role === 'admin' && appointment.company_id !== req.user.company_id) {
+      return res.status(403).json({ message: 'Gate Scan Error: Pass was issued by another tenant/company.' });
     }
 
     const now = new Date().toISOString();
@@ -226,6 +244,10 @@ export async function checkInAppointment(req, res) {
     const appointment = await db.get('SELECT * FROM appointments WHERE id = ?', [id]);
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
+    if (req.user.role === 'admin' && appointment.company_id !== req.user.company_id) {
+      return res.status(403).json({ message: 'Access denied: not within your company scope' });
+    }
+
     const now = new Date().toISOString();
     await db.run('UPDATE appointments SET check_in_time = ?, status = "approved" WHERE id = ?', [now, id]);
 
@@ -251,6 +273,10 @@ export async function checkOutAppointment(req, res) {
     const { id } = req.params;
     const appointment = await db.get('SELECT * FROM appointments WHERE id = ?', [id]);
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+    if (req.user.role === 'admin' && appointment.company_id !== req.user.company_id) {
+      return res.status(403).json({ message: 'Access denied: not within your company scope' });
+    }
 
     const now = new Date().toISOString();
     await db.run('UPDATE appointments SET check_out_time = ? WHERE id = ?', [now, id]);

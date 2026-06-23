@@ -15,7 +15,7 @@ export default function Dashboard() {
   // Set default tab based on role
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'superadmin') {
       setActiveTab('analytics');
     } else if (user.role === 'host') {
       setActiveTab('approvals');
@@ -27,7 +27,7 @@ export default function Dashboard() {
   if (!user) return null;
 
   const renderContent = () => {
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'superadmin') {
       return <AdminPortal activeTab={activeTab} setActiveTab={setActiveTab} />;
     } else if (user.role === 'host') {
       return <HostPortal activeTab={activeTab} setActiveTab={setActiveTab} user={user} />;
